@@ -1,0 +1,23 @@
+# Environment variables (VIKTIGT)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Chroma / vector DB (om du börjar spara lokalt)
+chroma/
+
+# Streamlit cache
+.streamlit/
