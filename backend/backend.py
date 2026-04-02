@@ -71,8 +71,12 @@ async def chat(req: ChatRequest):
         return {"error": "User not found"}
 
     qa_chain = user_chains[req.user_id]
-    result = qa_chain.run(req.question)
+
+    # NEW API
+    result = qa_chain.invoke({"query": req.question})
+    answer = result.get("result")
+
     docs = qa_chain.retriever.get_relevant_documents(req.question)
     sources = [doc.page_content for doc in docs]
 
-    return {"answer": result, "sources": sources}
+    return {"answer": answer, "sources": sources}
