@@ -1,1 +1,1 @@
-# ai-customer-support-bot-shopify
+# ai-customer-support-bot
