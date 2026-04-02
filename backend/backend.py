@@ -72,11 +72,22 @@ async def chat(req: ChatRequest):
 
     qa_chain = user_chains[req.user_id]
 
-    # NEW API
-    result = qa_chain.invoke({"query": req.question})
-    answer = result.get("result")
+    try:
+        # Kör chain
+        result = qa_chain.invoke({"query": req.question})
+        answer = result.get("result", "No answer found")
 
-    docs = qa_chain.retriever.get_relevant_documents(req.question)
-    sources = [doc.page_content for doc in docs]
+        # Hämta sources (NYTT SÄTT)
+        retriever = qa_chain.retriever
+        docs = retriever.invoke(req.question)
 
-    return {"answer": answer, "sources": sources}
+        sources = [doc.page_content for doc in docs]
+
+        return {
+            "answer": answer,
+            "sources": sources
+        }
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        return {"error": str(e)}
