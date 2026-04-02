@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 import uuid
-import os
 from dotenv import load_dotenv
 
 # LangChain
@@ -10,12 +9,19 @@ from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_classic.chains.retrieval_qa.base import RetrievalQA
 from langchain_core.prompts import PromptTemplate
-from fastapi.responses import HTMLResponse
-
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allows all domains; you can restrict to your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Temp storage för användarens chains
 user_chains = {}
