@@ -90,7 +90,7 @@ async def upload(file: UploadFile = File(...)):
         )
 
         # Hämta användarens ID från auth_response (inte via get_user igen)
-        user_id = auth_response.user.id
+        user_id = str(auth_response.user.id)
         print("Inloggad användare:", user_id)
         print("Session finns:", bool(auth_response.session))
 
