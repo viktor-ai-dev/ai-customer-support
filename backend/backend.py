@@ -72,7 +72,7 @@ async def upload(file: UploadFile = File(...)):
         supabase_pass = os.getenv("SUPABASE_PASSWORD")
 
         if not supabase_email or not supabase_pass:
-            raise ValueError("Supabase email/password missing in .env")
+            raise ValueError("Supabase email/password missing in Environment (Server or .env)")
 
         # Logga in och hämta session
         auth_response = supabase.auth.sign_in_with_password({
