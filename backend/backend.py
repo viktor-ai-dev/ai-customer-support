@@ -2,22 +2,33 @@ from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 import uuid
 from dotenv import load_dotenv
+import os
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_classic.chains.retrieval_qa.base import RetrievalQA
-from langchain_core.prompts import PromptTemplate
 
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client
 
 load_dotenv()
 
-app = FastAPI()
+# --------------------
+# Supabase
+# --------------------
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing Supabase credentials")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --------------------
-# CORS (frontend access)
+# App
 # --------------------
+app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://ai-support-frontend-9qcm.onrender.com"],
@@ -25,9 +36,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Temporary storage (RAM)
-user_chains = {}
 
 # --------------------
 # Request model
@@ -38,7 +46,7 @@ class ChatRequest(BaseModel):
 
 
 # --------------------
-# Upload endpoint
+# Upload
 # --------------------
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
@@ -46,54 +54,32 @@ async def upload(file: UploadFile = File(...)):
         content = await file.read()
         text = content.decode("utf-8")
 
-        # 1️⃣ Split text
+        # Split text
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=300,
             chunk_overlap=50
         )
         chunks = splitter.split_text(text) or [text]
 
-        # 2️⃣ Embeddings + Vector DB
         embeddings = OpenAIEmbeddings()
 
-        collection_name = str(uuid.uuid4())  # 🔥 unik per upload
+        # 🔥 SaaS: user_id = collection_name
+        user_id = str(uuid.uuid4())
 
-        db = Chroma.from_texts(  # type: ignore
+        db = Chroma.from_texts( # type: ignore
             texts=chunks,
             embedding=embeddings,
-            collection_name=collection_name
+            collection_name=user_id,
+            persist_directory=f"./chroma_db/{user_id}"
         )
 
-        retriever = db.as_retriever(search_kwargs={"k": 2})
+        db.persist() # type: ignore
 
-        # 3️⃣ LLM + prompt
-        llm = ChatOpenAI(model="gpt-4o-mini")
-
-        prompt_template = (
-            "You are a professional customer support AI.\n"
-            "Answer ONLY using the context below.\n"
-            "If the answer is not in the context, say 'I don't know'.\n\n"
-            "Context: {context}\n"
-            "Question: {question}\n"
-            "Answer:"
-        )
-
-        prompt = PromptTemplate(
-            input_variables=["context", "question"],
-            template=prompt_template
-        )
-
-        # 4️⃣ Chain
-        qa_chain = RetrievalQA.from_chain_type(  # type: ignore
-            llm=llm,
-            chain_type="stuff",
-            retriever=retriever,
-            chain_type_kwargs={"prompt": prompt}
-        )
-
-        # 5️⃣ Create user session
-        user_id = str(uuid.uuid4())
-        user_chains[user_id] = qa_chain
+        # 🔥 Save in Supabase
+        supabase.table("users_docs").insert({
+            "user_id": user_id,
+            "collection_name": user_id
+        }).execute()
 
         return {"user_id": user_id}
 
@@ -103,28 +89,56 @@ async def upload(file: UploadFile = File(...)):
 
 
 # --------------------
-# Chat endpoint
+# Chat
 # --------------------
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    if req.user_id not in user_chains:
-        return {"error": "User not found (session expired or invalid ID)"}
-
-    qa_chain = user_chains[req.user_id]
-
     try:
-        # 1️⃣ Run chain (NEW LangChain API)
-        result = qa_chain.invoke({"query": req.question})
-        answer = result.get("result", "I couldn't find an answer.")
+        # 🔥 Get user from DB
+        response = supabase.table("users_docs") \
+            .select("*") \
+            .eq("user_id", req.user_id) \
+            .execute()
 
-        # 2️⃣ Get sources (NEW retriever API)
-        retriever = qa_chain.retriever
+        if not response.data:
+            return {"error": "User not found"}
+
+        collection_name = response.data[0]["collection_name"] # type: ignore
+
+        # 🔥 Load vector DB
+        embeddings = OpenAIEmbeddings()
+
+        db = Chroma(
+            collection_name=collection_name, # type: ignore
+            embedding_function=embeddings,
+            persist_directory=f"./chroma_db/{collection_name}"
+        )
+
+        retriever = db.as_retriever(search_kwargs={"k": 2})
+
+        # 🔥 Retrieve docs
         docs = retriever.invoke(req.question)
+        context = "\n".join([doc.page_content for doc in docs])
+
+        # 🔥 LLM
+        llm = ChatOpenAI(model="gpt-4o-mini")
+
+        response = llm.invoke(
+            f"""You are a professional customer support AI.
+                Answer ONLY using the context below.
+                If the answer is not in the context, say 'I don't know'.
+
+                Context:
+                {context}
+
+                Question: {req.question}
+                Answer:"""
+            )
 
         sources = [doc.page_content[:300] for doc in docs]
 
-        return {
-            "answer": answer,
+        return { # type: ignore
+            "answer": response.content, # type: ignore
             "sources": sources
         }
 
