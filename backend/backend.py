@@ -7,9 +7,9 @@ import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client
+from supabase import create_client, Client
+from supabase import ClientOptions
 
 load_dotenv()
 
@@ -22,7 +22,14 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase credentials")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Otpions for  SupaClient
+options = ClientOptions(auto_refresh_token=True, persist_session=True)
+
+supabase: Client = create_client(
+    SUPABASE_URL, 
+    SUPABASE_KEY,
+    options=options
+)
 
 # --------------------
 # App
@@ -44,7 +51,6 @@ class ChatRequest(BaseModel):
     user_id: str
     question: str
 
-
 # --------------------
 # Upload
 # --------------------
@@ -55,29 +61,58 @@ async def upload(file: UploadFile = File(...)):
         text = content.decode("utf-8")
 
         # Split text
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=300,
-            chunk_overlap=50
-        )
+        splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
         chunks = splitter.split_text(text) or [text]
-
         embeddings = OpenAIEmbeddings()
 
-        # 🔥 SaaS: user_id = collection_name
-        user_id = str(uuid.uuid4())
+        # --------------------
+        # Supabase authentication
+        # --------------------
+        supabase_email = os.getenv("SUPABASE_USERNAME")
+        supabase_pass = os.getenv("SUPABASE_PASSWORD")
 
-        db = Chroma.from_texts( # type: ignore
+        if not supabase_email or not supabase_pass:
+            raise ValueError("Supabase email/password missing in .env")
+
+        # Logga in och hämta session
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": supabase_email,
+            "password": supabase_pass
+        })
+
+        if not auth_response.session:
+            raise ValueError("Login failed - no session returned")
+
+        # Explicit sätt sessionen på klienten (extra säkerhet)
+        supabase.auth.set_session(
+            auth_response.session.access_token,
+            auth_response.session.refresh_token
+        )
+
+        # Hämta användarens ID från auth_response (inte via get_user igen)
+        user_id = auth_response.user.id
+        print("Inloggad användare:", user_id)
+        print("Session finns:", bool(auth_response.session))
+
+        # --------------------
+        # Skapa Chroma-databas
+        # --------------------
+        db = Chroma.from_texts(
             texts=chunks,
             embedding=embeddings,
             collection_name=user_id,
             persist_directory=f"./chroma_db/{user_id}"
         )
 
-        # 🔥 Save in Supabase
-        supabase.table("users_docs").insert({
+        # --------------------
+        # Spara i Supabase – här används samma user_id som auth.uid() kommer att bli
+        # --------------------
+        result = supabase.table("users_docs").insert({
             "user_id": user_id,
             "collection_name": user_id
         }).execute()
+
+        print("Insert result:", result)
 
         return {"user_id": user_id}
 
