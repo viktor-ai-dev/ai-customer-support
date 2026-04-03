@@ -80,6 +80,8 @@ async def upload(file: UploadFile = File(...)):
             "password": supabase_pass
         })
 
+        print("user:",auth_response.user)
+        
         if not auth_response.session:
             raise ValueError("Login failed - no session returned")
 
