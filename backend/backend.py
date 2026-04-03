@@ -107,6 +107,15 @@ async def upload(file: UploadFile = File(...)):
         # --------------------
         # Spara i Supabase – här används samma user_id som auth.uid() kommer att bli
         # --------------------
+
+        # FELSÖKNING ENDAST
+        try:
+            user = supabase.auth.get_user()
+            print("Aktiv användare:",user.user.id)
+        except Exception as e:
+            print("INGEN AKTIV SESSION", e)
+            raise ValueError("Inte inloggad")
+
         result = supabase.table("users_docs").insert({
             "user_id": user_id,
             "collection_name": user_id
