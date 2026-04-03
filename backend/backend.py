@@ -94,6 +94,8 @@ async def upload(file: UploadFile = File(...)):
 @app.post("/chat")
 async def chat(req: ChatRequest):
     try:
+        print("Incoming request: ", req)
+        
         # 🔥 Get user from DB
         response = supabase.table("users_docs") \
             .select("*") \
