@@ -177,8 +177,15 @@ async def chat(req: ChatRequest):
 
         Question: {req.question}
         """
+
         router_llm = ChatOpenAI(model="gpt-4o-mini")
         route = router_llm.invoke(router_prompt).content.strip().lower()     #type: ignore
+
+        # Safeguard
+        if route not in ["products","policy","faq"]:
+            route = None
+
+        print("QUESTION:", req.question)
         print("AI ROUTE:", route)                                            #type: ignore
 
         filter = None
