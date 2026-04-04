@@ -162,14 +162,18 @@ async def chat(req: ChatRequest):
         # AI Driven Routing here.
         # --------------------
         router_prompt = f"""
-        You are an AI prouter for an ecommerce support team.
+        You are an AI router for an ecommerce support system.
 
-        Classify the user's question into ONE of the categories.
-        - products
-        - policy
-        - faq
+        Classify the user's question into ONE of these categories:
 
-        ONLY return the category name.
+        - products → questions about products, comparisons, specifications, features
+        - policy → questions about shipping, delivery, returns, refunds, orders, tracking
+        - faq → general questions like contact info, support hours, warranty
+
+        IMPORTANT:
+        - Questions about shipping, delivery, or orders MUST be classified as "policy"
+
+        ONLY return ONE word: products, policy, or faq.
 
         Question: {req.question}
         """
