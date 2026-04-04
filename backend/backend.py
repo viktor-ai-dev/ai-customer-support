@@ -83,7 +83,9 @@ async def upload(file: UploadFile = File(...),
         content = await file.read()
         text = content.decode("utf-8")
 
-        splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
+        # chunk_size = antal tecken per text stycke
+        # chunk_overlap = efterföljande textstycken delar 100 tecken med föregående chunk(För att inte tappa kontext)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
         chunks = splitter.split_text(text) or [text]
         embeddings = OpenAIEmbeddings()
 
