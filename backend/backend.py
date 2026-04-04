@@ -54,6 +54,19 @@ def get_authed_supabase() -> tuple[Client, str]:
     return authed_client, user_id
 
 # --------------------
+# Score docs
+# Check if each word in question exists in doc.
+# Give points accordingly.
+# --------------------
+def score_doc(doc: Document, question: str):
+    score = 0
+    for word in question.split():
+        if word in doc.page_content:
+            score += 1
+    return score
+
+
+# --------------------
 # App
 # --------------------
 app = FastAPI()
@@ -169,26 +182,52 @@ async def chat(req: ChatRequest):
         )
 
         # Send question(query) and retrieve relevant chunks
-        docs = retriever.invoke(req.question)
+        vector_docs = retriever.invoke(req.question)    # Semantic docs = docs där de har enligt AI en relevant betydelse(semantisk)
+        keyword_docs = []                               # keyword docs = docs där ett/flera ord finns i question.
+
+        # Loopa igenom chunks(docs), kolla att ett visst ord finns i question.
+        for doc in vector_docs:
+            if any(Word in doc.page_content.lower() for Word in req.question.lower().split()):
+                keyword_docs.append(doc)
+
+        # Merge ALL docs, vector + keyword.
+        all_docs = vector_docs + keyword_docs
+
+        unique_docs = []    # unika docs
+        seen = set()        # innehållet i docs
+
+        for doc in all_docs:
+            if doc.page_content not in seen:    # har vi sätt textinnehållet förut?
+                unique_docs.append(doc)         # Spara doc objektet
+                seen.add(doc.page_content)      # Spara denna text
+
+        # Top docs:
+        # sorted(T@sorted, key) = sorted(list_to_sort, lambda=for each element d in unique_docs: score_doc(d,question)) 
+        # returns sorted list descending(reverse=True) limit to 5
+        top_docs = sorted(unique_docs, key=lambda d: score_doc(d, req.question.lower()),reverse=True)[:5]
 
         # Join bygger och slår ihop ett set av strängar till en enda sträng, vilket vi bygger med listbyggaren
         # Varje element vi itererar över separeras med \n
-        context = "\n".join([doc.page_content for doc in docs]) 
+        context = "\n".join([doc.page_content for doc in top_docs]) 
 
         llm = ChatOpenAI(model="gpt-4o-mini")
         response = llm.invoke(
-            f"""You are a professional customer support AI.
-                Answer ONLY using the context below.
-                If the answer is not in the context, say 'I don't know'.
+            f"""You are a professional ecommerce customer support AI.
+                Use ONLY the context below to answer.
+                If the answer is not clearly in the context, say 'I don't know'.
+
+                Be helpful, concise and accurate.
 
                 Context:
                 {context}
 
                 Question: {req.question}
-                Answer:"""
+                
+                Answer:
+                """
             )
 
-        sources = [doc.page_content[:300] for doc in docs]
+        sources = [doc.page_content[:300] for doc in vector_docs]
         return {
             "answer": response.content,
             "sources": sources
