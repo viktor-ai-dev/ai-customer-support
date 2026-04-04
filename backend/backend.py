@@ -97,7 +97,7 @@ async def upload(file: UploadFile = File(...),
             embedding=embeddings,
             collection_name=user_id,
             persist_directory=f"./chroma_db/{user_id}",
-            metadatas=[{"doc_type":doc_type} for _ in chunks] # Håller reda på vilken doc_type varje chunk har
+            metadatas=[{"doc_type":doc_type} for _ in chunks] # Håller reda på vilken doc_type varje chunk har. Funkar som filter.
         )
 
         # Spara i Supabase
@@ -148,11 +148,21 @@ async def chat(req: ChatRequest):
         )
 
         # Retriever has a filter for getting chunks with category, for ex: policy.
-        # TESTING NOW: Always filter on chunk category: Policy
+        question = req.question.lower()
+
+        if any(Word in question for Word in ["compare","vs","difference"]):
+            filter = {"doc_type":"products"}
+        elif any(Word in question for Word in ["return","refund","order","shipping"]):
+            filter = {"doc_type":"policy"}
+        elif any(Word in question for Word in ["warranty","contact","support"]):
+            filter = {"doc_type":"faq"}
+        else:
+            filter = None
+
         retriever = db.as_retriever(
             search_kwargs={
                 "k": 2,
-                #"filter": {"doc_type": "policy"} # Metadata filter
+                "filter": filter # Metadata filter
             }
         )
 
