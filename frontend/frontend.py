@@ -8,16 +8,29 @@ st.set_page_config(page_title="AI Customer Support Chat", page_icon="🤖")
 st.title("🤖 AI Customer Support Chat")
 
 # --------------------
+# Document selection
+# --------------------
+doc_type = st.selectbox(
+    label="Select document type", 
+    options=["policy","products","faq"]
+)
+
+# --------------------
 # Upload dokument
 # --------------------
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
 
+# A widget that allows uplaoding a file
 file = st.file_uploader("Upload a .txt file", type=["txt"])
+
 if file and st.session_state["user_id"] is None:
     with st.spinner("Uploading..."):
         try:
-            resp = requests.post(f"{BACKEND_URL}/upload", files={"file": file})
+            resp = requests.post(
+                f"{BACKEND_URL}/upload", 
+                files={"file": file},
+                data={"doc_type": doc_type})
             resp.raise_for_status()
             user_id = resp.json().get("user_id")
             st.session_state["user_id"] = user_id

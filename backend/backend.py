@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
-import uuid
 from dotenv import load_dotenv
 import os
 
@@ -9,6 +8,7 @@ from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
+from fastapi import Form
 
 load_dotenv()
 
@@ -77,7 +77,8 @@ class ChatRequest(BaseModel):
 # Upload
 # --------------------
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), 
+                 doc_type: str = Form(...)):
     try:
         content = await file.read()
         text = content.decode("utf-8")
@@ -95,7 +96,8 @@ async def upload(file: UploadFile = File(...)):
             texts=chunks,
             embedding=embeddings,
             collection_name=user_id,
-            persist_directory=f"./chroma_db/{user_id}"
+            persist_directory=f"./chroma_db/{user_id}",
+            metadatas=[{"doc_type":doc_type} for _ in chunks] # Håller reda på vilken doc_type varje chunk har
         )
 
         # Spara i Supabase
@@ -134,6 +136,8 @@ async def chat(req: ChatRequest):
         if not result.data:
             return {"error": "User not found"}
 
+        # From database query result, we get the collection_name
+        # Accessing the first JSON objects content, column name: collection_name which is actually the user_id
         collection_name = result.data[0]["collection_name"]
 
         embeddings = OpenAIEmbeddings()
@@ -143,9 +147,21 @@ async def chat(req: ChatRequest):
             persist_directory=f"./chroma_db/{collection_name}"
         )
 
-        retriever = db.as_retriever(search_kwargs={"k": 2})
+        # Retriever has a filter for getting chunks with category, for ex: policy.
+        # TESTING NOW: Always filter on chunk category: Policy
+        retriever = db.as_retriever(
+            search_kwargs={
+                "k": 2,
+                "filter": {"doc_type": "policy"} # Metadata filter
+            }
+        )
+
+        # Send question(query) and retrieve relevant chunks
         docs = retriever.invoke(req.question)
-        context = "\n".join([doc.page_content for doc in docs])
+
+        # Join bygger och slår ihop ett set av strängar till en enda sträng, vilket vi bygger med listbyggaren
+        # Varje element vi itererar över separeras med \n
+        context = "\n".join([doc.page_content for doc in docs]) 
 
         llm = ChatOpenAI(model="gpt-4o-mini")
         response = llm.invoke(
