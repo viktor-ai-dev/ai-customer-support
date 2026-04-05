@@ -23,7 +23,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase credentials")
 
 # ✅ Single global client
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+#supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --------------------
 # Memory (per user)
@@ -90,6 +90,7 @@ async def upload(
         )
 
         # Save mapping in Supabase
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         supabase.table("users_docs").insert({
             "user_id": user_id,
             "collection_name": user_id,
@@ -151,6 +152,7 @@ async def chat(req: ChatRequest):
         # --------------------
         # Get user collection
         # --------------------
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         result = supabase.table("users_docs") \
             .select("*") \
             .eq("user_id", req.user_id) \
