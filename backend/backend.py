@@ -275,4 +275,3 @@ async def chat(req: ChatRequest):
     except Exception as e:
         print("CHAT ERROR:", str(e))
         return {"error": str(e)}
-```
