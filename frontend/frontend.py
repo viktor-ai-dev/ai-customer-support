@@ -6,16 +6,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --------------------
-# Konstanter
-# --------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase credentials")
 
-# ✅ skapa EN gång
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BACKEND_URL = "https://ai-customer-backend.onrender.com"
@@ -28,6 +24,9 @@ st.title("🤖 AI Customer Support Chat")
 # --------------------
 if "user" not in st.session_state:
     st.session_state["user"] = None
+
+if "access_token" not in st.session_state:
+    st.session_state["access_token"] = None
 
 # --------------------
 # LOGIN / SIGNUP
@@ -47,6 +46,8 @@ if not st.session_state["user"]:
                 })
 
                 st.session_state["user"] = res.user
+                st.session_state["access_token"] = res.session.access_token
+
                 st.success("Logged in!")
                 st.rerun()
 
@@ -56,7 +57,7 @@ if not st.session_state["user"]:
     with col2:
         if st.button("Sign Up"):
             try:
-                res = supabase.auth.sign_up({
+                supabase.auth.sign_up({
                     "email": email,
                     "password": password
                 })
@@ -67,24 +68,18 @@ if not st.session_state["user"]:
                 st.error(f"Signup failed: {e}")
 
 # --------------------
-# APP (efter login)
+# APP
 # --------------------
 if st.session_state["user"]:
 
-    user_id = st.session_state["user"].id
     st.success(f"Logged in as: {st.session_state['user'].email}")
 
-    # --------------------
-    # Document type
-    # --------------------
-    doc_type = st.selectbox(
-        "Select document type",
-        ["policy", "products", "faq"]
-    )
+    headers = {
+        "Authorization": f"Bearer {st.session_state['access_token']}"
+    }
 
-    # --------------------
-    # Upload
-    # --------------------
+    doc_type = st.selectbox("Select document type", ["policy", "products", "faq"])
+
     file = st.file_uploader("Upload a .txt file", type=["txt"])
 
     if file:
@@ -93,10 +88,8 @@ if st.session_state["user"]:
                 resp = requests.post(
                     f"{BACKEND_URL}/upload",
                     files={"file": file},
-                    data={
-                        "user_id": user_id,
-                        "doc_type": doc_type
-                    }
+                    data={"doc_type": doc_type},
+                    headers=headers
                 )
 
                 resp.raise_for_status()
@@ -105,9 +98,6 @@ if st.session_state["user"]:
             except Exception as e:
                 st.error(f"Upload failed: {e}")
 
-    # --------------------
-    # Chat
-    # --------------------
     question = st.chat_input("Ask a question...")
 
     if question:
@@ -116,9 +106,9 @@ if st.session_state["user"]:
                 resp = requests.post(
                     f"{BACKEND_URL}/chat",
                     json={
-                        "user_id": user_id,
                         "question": question
-                    }
+                    },
+                    headers=headers
                 )
 
                 resp.raise_for_status()
