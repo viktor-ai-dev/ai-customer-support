@@ -28,6 +28,24 @@ if "user" not in st.session_state:
 if "access_token" not in st.session_state:
     st.session_state["access_token"] = None
 
+
+# --------------------
+# Uppgrade Button
+# --------------------
+if st.button("🚀 Upgrade to Pro"):
+    resp = requests.post(
+        f"{BACKEND_URL}/create-checkout-session",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    data = resp.json()
+    url = data.get("url")
+
+    if url:
+        st.markdown(f"[👉 Pay here]({url})")
+    else:
+        st.error("Failed to create checkout")
+
 # --------------------
 # LOGIN / SIGNUP
 # --------------------
