@@ -35,7 +35,7 @@ if "access_token" not in st.session_state:
 if st.button("🚀 Upgrade to Pro"):
     resp = requests.post(
         f"{BACKEND_URL}/create-checkout-session",
-        headers={"Authorization": f"Bearer {access_token}"}
+        headers={"Authorization": f"Bearer {st.session_state["access_token"]}"}
     )
 
     data = resp.json()
