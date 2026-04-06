@@ -93,6 +93,7 @@ def extract_relevant_snippet(doc, question):
 # --------------------
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
+# -------------------- Create Checkout Session --------------------
 @app.post("/create-checkout-session")
 async def create_checkout_session(authorization: str = Header(None)):
     try:
@@ -112,45 +113,38 @@ async def create_checkout_session(authorization: str = Header(None)):
             }
         )
 
-        return {"url": session.url}
+        return JSONResponse(status_code=200, content={"url": session.url})
 
     except Exception as e:
-        return {"error": str(e)}
-    
-# --------------------
-# Webhook
-# --------------------
+        print("CREATE CHECKOUT ERROR:", str(e))
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
+# -------------------- Webhook --------------------
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
+    
     print("Webhook payload:", payload.decode())
     print("Stripe signature:", sig_header)
     
     try:
         event = stripe.Webhook.construct_event(
-            payload,
-            sig_header,
-            os.getenv("STRIPE_WEBHOOK_SECRET")
+            payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
         )
     except Exception as e:
         print("Webhook error:", e)
-        return {"error": str(e)}
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-
         user_id = session["metadata"]["user_id"]
 
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-        supabase.table("users_docs").update({
-            "is_pro": True
-        }).eq("user_id", user_id).execute()
-
+        supabase.table("users_docs").update({"is_pro": True}).eq("user_id", user_id).execute()
         print("🔥 USER UPGRADED:", user_id)
 
-    return {"status": "ok"}
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 # --------------------
 # UPLOAD

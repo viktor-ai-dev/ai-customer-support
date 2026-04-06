@@ -33,18 +33,28 @@ if "access_token" not in st.session_state:
 # Uppgrade Button
 # --------------------
 if st.button("🚀 Upgrade to Pro"):
-    resp = requests.post(
-        f"{BACKEND_URL}/create-checkout-session",
-        headers={"Authorization": f"Bearer {st.session_state["access_token"]}"}
-    )
+    try:
+        resp = requests.post(
+            f"{BACKEND_URL}/create-checkout-session",
+            headers={"Authorization": f"Bearer {st.session_state['access_token']}"}
+        )
+        try:
+            data = resp.json()
+        except Exception:
+            st.error(f"Backend returned non-JSON:\n{resp.text}")
+            st.stop()
 
-    data = resp.json()
-    url = data.get("url")
+        if resp.status_code != 200:
+            st.error(f"Error creating checkout:\n{data.get('error')}")
+        else:
+            url = data.get("url")
+            if url:
+                st.markdown(f"[👉 Pay here]({url})")
+            else:
+                st.error("No URL returned from backend")
 
-    if url:
-        st.markdown(f"[👉 Pay here]({url})")
-    else:
-        st.error("Failed to create checkout")
+    except Exception as e:
+        st.error(f"Request failed: {e}")
 
 # --------------------
 # LOGIN / SIGNUP
