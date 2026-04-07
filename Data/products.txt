@@ -1,0 +1,42 @@
+Product Catalog:
+
+Product: iPhone 13
+Price: $799
+Category: Smartphone
+Display: 6.1-inch OLED
+Camera: Dual 12MP camera system
+Battery: Up to 19 hours video playback
+Storage Options: 128GB, 256GB, 512GB
+Description: A powerful smartphone with excellent performance and great camera quality.
+
+
+Product: iPhone 14
+Price: $899
+Category: Smartphone
+Display: 6.1-inch OLED
+Camera: Improved dual 12MP camera system
+Battery: Up to 20 hours video playback
+Storage Options: 128GB, 256GB, 512GB
+Description: An upgraded version of iPhone 13 with better battery life and enhanced camera performance.
+
+
+Product: Samsung Galaxy S22
+Price: $799
+Category: Smartphone
+Display: 6.2-inch AMOLED
+Camera: Triple camera system
+Battery: 3700 mAh
+Storage Options: 128GB, 256GB
+Description: A premium Android smartphone with versatile camera features.
+
+
+Comparison Notes:
+
+iPhone 14 vs iPhone 13:
+- iPhone 14 has slightly better battery life
+- iPhone 14 camera is improved
+- Design is very similar
+
+Samsung Galaxy S22 vs iPhone:
+- Samsung offers more camera flexibility
+- iPhone offers better ecosystem integration
