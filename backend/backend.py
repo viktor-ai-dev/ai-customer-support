@@ -10,7 +10,6 @@ import re
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-import streamlit as st
 
 load_dotenv()
 
@@ -102,10 +101,8 @@ async def stripe_webhook(request: Request):
 async def upload(file: UploadFile = File(...), doc_type: str = Form(...), authorization: str = Header(None)):
     try:
         supabase, user_id = get_user_from_token(authorization)
-        
-        with st.spinner(text="Thinking..."):
-            content = await file.read()
-            text = content.decode("utf-8")
+        content = await file.read()
+        text = content.decode("utf-8")
 
         splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=150)
         chunks = splitter.split_text(text) or [text]
